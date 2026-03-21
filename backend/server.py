@@ -20,7 +20,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'guild-rpg-secret-key-2026-extended!')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'guild-rpg-secret-key-2026-extended-secure!!')
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 72
 
