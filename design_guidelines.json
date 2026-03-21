@@ -1,0 +1,265 @@
+{
+  "project_info": {
+    "name": "Гильдия (Guild)",
+    "type": "Mobile App (React Native Expo)",
+    "theme": "Dark RPG Fantasy",
+    "platform": "iOS, Android",
+    "stack": {
+      "framework": "React Native (Expo)",
+      "navigation": "Expo Router",
+      "styling": "StyleSheet.create (No CSS/Tailwind)",
+      "icons": "@expo/vector-icons",
+      "animations": "react-native-reanimated"
+    }
+  },
+  "design_system": {
+    "colors": {
+      "background": {
+        "main": "#0e0c15",
+        "card": "#15131e",
+        "overlay": "rgba(14, 12, 21, 0.85)"
+      },
+      "text": {
+        "primary": "#d4d0de",
+        "highlight": "#f0eef5",
+        "muted": "#9a96aa",
+        "gold": "#c9a96e"
+      },
+      "accent": {
+        "gold": "#c9a96e",
+        "goldLight": "#e8d5a8",
+        "violet": "#7c6bc4",
+        "violetDark": "#2d2a4a"
+      },
+      "status": {
+        "success": "#4ead6a",
+        "danger": "#c74848",
+        "warning": "#e8d5a8"
+      },
+      "border": {
+        "default": "#2d2a4a",
+        "gold": "#c9a96e",
+        "violet": "#7c6bc4"
+      }
+    },
+    "typography": {
+      "fonts": {
+        "heading": "Cinzel",
+        "body": "EB Garamond"
+      },
+      "sizes": {
+        "h1": 32,
+        "h2": 24,
+        "h3": 20,
+        "body": 16,
+        "caption": 14,
+        "small": 12
+      },
+      "weights": {
+        "regular": "400",
+        "bold": "700",
+        "black": "900"
+      }
+    },
+    "spacing": {
+      "xs": 4,
+      "s": 8,
+      "m": 16,
+      "l": 24,
+      "xl": 32,
+      "xxl": 48
+    },
+    "layout": {
+      "borderRadius": {
+        "s": 4,
+        "m": 8,
+        "l": 16,
+        "full": 9999
+      },
+      "touchTarget": 44
+    },
+    "shadows": {
+      "card": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 4 },
+        "shadowOpacity": 0.5,
+        "shadowRadius": 8,
+        "elevation": 5
+      },
+      "glow": {
+        "shadowColor": "#c9a96e",
+        "shadowOffset": { "width": 0, "height": 0 },
+        "shadowOpacity": 0.8,
+        "shadowRadius": 10,
+        "elevation": 10
+      }
+    }
+  },
+  "assets": {
+    "images": [
+      {
+        "url": "https://images.pexels.com/photos/5988169/pexels-photo-5988169.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Gold powder/particles on black - Use for background texture or particle effects",
+        "category": "texture"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1755272990109-f952e79ef12e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwyfHxkYXJrJTIwZmFudGFzeSUyMGFic3RyYWN0JTIwYmFja2dyb3VuZCUyMGdvbGQlMjBwYXJ0aWNsZXN8ZW58MHx8fHwxNzc0MTIxMTAyfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract gold strands - Use for hero headers or card backgrounds",
+        "category": "hero"
+      }
+    ],
+    "icons": {
+      "library": "MaterialCommunityIcons",
+      "names": {
+        "sword": "sword",
+        "shield": "shield-outline",
+        "dice": "dice-d20",
+        "scroll": "script-text-outline",
+        "user": "account",
+        "email": "email-outline",
+        "lock": "lock-outline",
+        "eye": "eye-outline",
+        "eyeOff": "eye-off-outline",
+        "back": "arrow-left"
+      }
+    }
+  },
+  "components": {
+    "ScreenContainer": {
+      "style": {
+        "flex": 1,
+        "backgroundColor": "#0e0c15",
+        "paddingHorizontal": 16
+      },
+      "notes": "Must use SafeAreaView or useSafeAreaInsets for padding top/bottom"
+    },
+    "PrimaryButton": {
+      "style": {
+        "backgroundColor": "#c9a96e",
+        "paddingVertical": 14,
+        "paddingHorizontal": 24,
+        "borderRadius": 8,
+        "alignItems": "center",
+        "justifyContent": "center",
+        "minHeight": 44,
+        "borderWidth": 1,
+        "borderColor": "#e8d5a8"
+      },
+      "textStyle": {
+        "color": "#0e0c15",
+        "fontFamily": "Cinzel",
+        "fontSize": 18,
+        "fontWeight": "700",
+        "textTransform": "uppercase"
+      }
+    },
+    "SecondaryButton": {
+      "style": {
+        "backgroundColor": "transparent",
+        "paddingVertical": 14,
+        "paddingHorizontal": 24,
+        "borderRadius": 8,
+        "alignItems": "center",
+        "justifyContent": "center",
+        "minHeight": 44,
+        "borderWidth": 1,
+        "borderColor": "#7c6bc4"
+      },
+      "textStyle": {
+        "color": "#f0eef5",
+        "fontFamily": "Cinzel",
+        "fontSize": 16,
+        "fontWeight": "600"
+      }
+    },
+    "TextInput": {
+      "containerStyle": {
+        "marginBottom": 16
+      },
+      "inputStyle": {
+        "backgroundColor": "#15131e",
+        "color": "#d4d0de",
+        "borderWidth": 1,
+        "borderColor": "#2d2a4a",
+        "borderRadius": 8,
+        "padding": 12,
+        "fontFamily": "EB Garamond",
+        "fontSize": 16,
+        "minHeight": 48
+      },
+      "focusStyle": {
+        "borderColor": "#c9a96e",
+        "shadowColor": "#c9a96e",
+        "shadowOpacity": 0.3,
+        "shadowRadius": 4
+      },
+      "errorStyle": {
+        "borderColor": "#c74848"
+      }
+    },
+    "Card": {
+      "style": {
+        "backgroundColor": "#15131e",
+        "borderRadius": 12,
+        "padding": 20,
+        "borderWidth": 1,
+        "borderColor": "rgba(201, 169, 110, 0.2)",
+        "marginVertical": 8
+      }
+    }
+  },
+  "screens": {
+    "Login": {
+      "path": "/app/login.tsx",
+      "elements": [
+        "Back Button (top left)",
+        "Logo (⚜️ Text or Icon) - Large, centered, gold",
+        "Title: 'Вход в Гильдию' (Cinzel, Gold)",
+        "Subtitle: 'Welcome back, adventurer' (Garamond, Muted)",
+        "Form: Nickname/Email, Password",
+        "Action: 'Войти' (Primary Button)",
+        "Footer: 'Don't have an account? Register' (Link)"
+      ]
+    },
+    "Register": {
+      "path": "/app/register.tsx",
+      "elements": [
+        "Back Button",
+        "Title: 'Вступить в Гильдию' (Cinzel)",
+        "Form: Nickname (Validation: Latin+Digits+_), Email, Password, Confirm Password",
+        "Validation Hints: Show RPG-styled text below inputs (e.g., 'Password too weak, like a goblin's shield')",
+        "Action: 'Зарегистрироваться' (Primary Button)"
+      ]
+    },
+    "Welcome": {
+      "path": "/app/index.tsx",
+      "elements": [
+        "Background Image (Dark Fantasy Texture) with heavy overlay",
+        "Hero Text: 'ГИЛЬДИЯ' (Massive, Cinzel, Gold Glow)",
+        "Tagline: 'Unite. Play. Conquer.'",
+        "Stats/Counters: 'Active Players', 'Ongoing Campaigns' (Row of counters)",
+        "Buttons: 'Join the Guild' (Primary), 'Login' (Secondary)"
+      ]
+    }
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: USE REACT NATIVE CORE COMPONENTS ONLY (View, Text, TouchableOpacity, etc.). NO HTML ELEMENTS (div, span, button).",
+    "CRITICAL: USE StyleSheet.create() FOR STYLING. DO NOT USE CSS FILES OR TAILWIND.",
+    "CRITICAL: Use 'expo-font' to load 'Cinzel_400Regular', 'Cinzel_700Bold', 'EBGaramond_400Regular'. Handle loading state with a Splash Screen or loading spinner.",
+    "CRITICAL: Use 'react-native-safe-area-context' for proper notch handling.",
+    "CRITICAL: Use 'KeyboardAvoidingView' with behavior='padding' for forms.",
+    "CRITICAL: All interactive elements must have 'minHeight: 44' and 'minWidth: 44' for touch targets.",
+    "CRITICAL: Add 'data-testid' to all inputs and buttons for testing.",
+    "CRITICAL: Since the project uses TypeScript (.tsx), ensure you use proper types for navigation and props. If you are restricted to .js, rename files to .js, but the project structure suggests .tsx.",
+    "ANIMATION: Use 'react-native-reanimated' for entering screens (FadeInDown) and button presses (Scale).",
+    "ASSETS: Use the provided image URLs with 'expo-image' (Image component) for better caching/performance.",
+    "NAVIGATION: Use 'expo-router'. Create files in 'app/' directory. Use 'Link' from 'expo-router' for navigation."
+  ],
+  "universal_guidelines": [
+    "Do not use generic system fonts. Always use Cinzel or EB Garamond.",
+    "Do not use pure black (#000000). Use #0e0c15 for deep backgrounds.",
+    "Ensure high contrast for text. Gold on Dark Violet is good. Muted text on Dark Violet must be readable.",
+    "Input fields should have a distinct focus state (Gold Border + Glow).",
+    "Error messages should be Red (#c74848) and clearly visible."
+  ]
+}
