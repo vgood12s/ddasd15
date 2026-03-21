@@ -78,6 +78,9 @@ class RatingRequest(BaseModel):
     rating: int
     comment: str = ""
 
+class SendMessageRequest(BaseModel):
+    text: str
+
 # ===== Helpers =====
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -388,6 +391,7 @@ async def get_bookings(user: dict = Depends(get_current_user)):
                 "duration_hours": game.get("duration_hours", 4),
                 "duration_text": format_duration(game.get("duration_hours", 4)),
                 "game_master": game.get("game_master", ""),
+                "master_login": game.get("master_login", ""),
                 "location": game.get("location", ""),
                 "booked_count": booked, "max_players": game.get("max_players", 6),
                 "hourly_rate": game.get("hourly_rate", 350),
@@ -401,6 +405,54 @@ async def get_bookings(user: dict = Depends(get_current_user)):
         else:
             result["past"].append(b)
     return result
+
+# ===== Chat =====
+@api_router.get("/bookings/{booking_id}/messages")
+async def get_messages(booking_id: str, user: dict = Depends(get_current_user)):
+    booking = await db.bookings.find_one({"id": booking_id, "user_id": user["id"]}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    # Get game and master info
+    game = await db.games.find_one({"id": booking["game_id"]}, {"_id": 0})
+    master_name = game.get("game_master", "Мастер") if game else "Мастер"
+    game_title = game.get("title", "") if game else ""
+    messages = await db.messages.find({"booking_id": booking_id}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    # Mark master messages as read
+    await db.messages.update_many(
+        {"booking_id": booking_id, "sender_type": "master", "is_read": False},
+        {"$set": {"is_read": True}}
+    )
+    return {
+        "messages": messages,
+        "master_name": master_name,
+        "game_title": game_title,
+        "booking_status": booking.get("status", "active"),
+    }
+
+@api_router.post("/bookings/{booking_id}/messages")
+async def send_message(booking_id: str, req: SendMessageRequest, user: dict = Depends(get_current_user)):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Сообщение не может быть пустым")
+    booking = await db.bookings.find_one({"id": booking_id, "user_id": user["id"]}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    msg = {
+        "id": str(uuid.uuid4()),
+        "booking_id": booking_id,
+        "sender_id": user["id"],
+        "sender_type": "player",
+        "sender_name": user.get("first_name") or user.get("username", ""),
+        "text": req.text.strip(),
+        "is_read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.messages.insert_one(msg)
+    return {"id": msg["id"], "message": "Сообщение отправлено"}
+
+@api_router.get("/bookings/{booking_id}/unread_count")
+async def get_unread_count(booking_id: str, user: dict = Depends(get_current_user)):
+    count = await db.messages.count_documents({"booking_id": booking_id, "sender_type": "master", "is_read": False})
+    return {"unread_count": count}
 
 # ===== Wallet =====
 @api_router.get("/wallet")
@@ -657,6 +709,7 @@ async def startup():
     await db.games.create_index("id", unique=True)
     await db.bookings.create_index("id", unique=True)
     await db.masters.create_index("id", unique=True)
+    await db.messages.create_index([("booking_id", 1), ("created_at", 1)])
     await seed_data()
     logger.info("Гильдия API started")
 
