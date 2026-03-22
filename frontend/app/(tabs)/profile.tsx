@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  RefreshControl, ActivityIndicator, Modal,
+  RefreshControl, ActivityIndicator, Modal, Image, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
+
+const GUILD_BASE_URL = 'https://guildkhv.com';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -19,6 +22,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [masters, setMasters] = useState<any[]>([]);
   const [showMasters, setShowMasters] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     loadMasters();
@@ -40,8 +44,50 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout();
-    // AuthGate will detect user=null and redirect to welcome screen
   };
+
+  const handleAvatarUpload = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Нет доступа', 'Разрешите доступ к галерее');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setUploadingAvatar(true);
+      try {
+        const formData = new FormData();
+        const filename = asset.uri.split('/').pop() || 'avatar.jpg';
+        const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        formData.append('avatar', {
+          uri: asset.uri,
+          name: filename,
+          type: mimeType,
+        } as any);
+        await api.upload('/api/profile/avatar', formData, token);
+        await refreshUser();
+      } catch (e: any) {
+        Alert.alert('Ошибка', e.message || 'Не удалось загрузить аватар');
+      } finally {
+        setUploadingAvatar(false);
+      }
+    }
+  };
+
+  const resolveAvatarUrl = (avatar: string | null | undefined) => {
+    if (!avatar) return null;
+    if (avatar.startsWith('http')) return avatar;
+    return `${GUILD_BASE_URL}${avatar}`;
+  };
+
+  const avatarUrl = resolveAvatarUrl(user?.avatar);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -63,14 +109,23 @@ export default function ProfileScreen() {
 
         {/* Profile Card */}
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
+          <TouchableOpacity onPress={handleAvatarUpload} style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <MaterialCommunityIcons name="account" size={40} color={Colors.accent.gold} />
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color={Colors.accent.gold} />
+              ) : avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <MaterialCommunityIcons name="account" size={40} color={Colors.accent.gold} />
+              )}
             </View>
             <View style={styles.statusBadge}>
               <Text style={styles.statusEmoji}>{user?.status_emoji}</Text>
             </View>
-          </View>
+            <View style={styles.avatarEditBadge}>
+              <MaterialCommunityIcons name="camera" size={12} color="#fff" />
+            </View>
+          </TouchableOpacity>
           <Text style={styles.profileName}>{user?.first_name || user?.username}</Text>
           <Text style={styles.profileEmail}>{user?.email}</Text>
           <View style={styles.statusChip}>
@@ -192,7 +247,9 @@ const styles = StyleSheet.create({
   logoutBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.bg.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border.default },
   profileCard: { backgroundColor: Colors.bg.card, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(201,169,110,0.2)', padding: 24, alignItems: 'center', marginBottom: Spacing.m },
   avatarContainer: { position: 'relative', marginBottom: 12 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.bg.main, borderWidth: 2, borderColor: Colors.accent.gold, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.bg.main, borderWidth: 2, borderColor: Colors.accent.gold, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImage: { width: 80, height: 80, borderRadius: 40 },
+  avatarEditBadge: { position: 'absolute', top: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(124,107,196,0.9)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.bg.card },
   statusBadge: { position: 'absolute', bottom: -4, right: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.bg.card, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.bg.main },
   statusEmoji: { fontSize: 14 },
   profileName: { fontFamily: Fonts.heading, fontSize: FontSizes.h2, color: Colors.text.highlight },

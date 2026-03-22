@@ -9,6 +9,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
+import { getCached, setCache } from '../../src/utils/cache';
 
 const TABS = [
   { key: 'sessions', label: 'Сессии', icon: 'sword-cross' },
@@ -26,8 +27,8 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const { token, user } = useAuth();
   const api = useApi();
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any[]>(getCached('leaderboard_sessions') || []);
+  const [loading, setLoading] = useState(!getCached('leaderboard_sessions'));
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('sessions');
 
@@ -35,10 +36,15 @@ export default function LeaderboardScreen() {
     try {
       const d = await api.get(`/api/leaderboard?sort_by=${sortBy}`, token);
       setData(d);
+      setCache(`leaderboard_${sortBy}`, d);
     } catch (e) {}
   }, [token]);
 
-  useEffect(() => { load(tab).finally(() => setLoading(false)); }, [tab]);
+  useEffect(() => {
+    const cached = getCached(`leaderboard_${tab}`);
+    if (cached) { setData(cached); setLoading(false); }
+    load(tab).finally(() => setLoading(false));
+  }, [tab]);
   const onRefresh = async () => { setRefreshing(true); await load(tab); setRefreshing(false); };
 
   const getValue = (item: any) => {
@@ -64,7 +70,7 @@ export default function LeaderboardScreen() {
             key={t.key}
             testID={`leaderboard-tab-${t.key}`}
             style={[styles.tabBtn, tab === t.key && styles.tabBtnActive]}
-            onPress={() => { setLoading(true); setTab(t.key); }}
+            onPress={() => { setTab(t.key); }}
           >
             <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
           </TouchableOpacity>

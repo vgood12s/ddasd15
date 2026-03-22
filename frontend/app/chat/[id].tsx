@@ -40,6 +40,22 @@ function VoicePlayer({ url }: { url: string }) {
   const [position, setPosition] = useState(0);
   const soundRef = useRef<Audio.Sound | null>(null);
 
+  // Generate consistent waveform bars from URL hash
+  const bars = React.useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < url.length; i++) {
+      hash = ((hash << 5) - hash) + url.charCodeAt(i);
+      hash |= 0;
+    }
+    const count = 32;
+    const result: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const seed = Math.abs(hash * (i + 1) * 2654435761) % 1000;
+      result.push(0.15 + (seed / 1000) * 0.85);
+    }
+    return result;
+  }, [url]);
+
   const togglePlay = async () => {
     try {
       if (playing && soundRef.current) {
@@ -52,6 +68,7 @@ function VoicePlayer({ url }: { url: string }) {
         setPlaying(true);
         return;
       }
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
       const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true }, (status) => {
         if (status.isLoaded) {
           setDuration(status.durationMillis || 0);
@@ -71,7 +88,7 @@ function VoicePlayer({ url }: { url: string }) {
     return () => { soundRef.current?.unloadAsync(); };
   }, []);
 
-  const progress = duration > 0 ? (position / duration) * 100 : 0;
+  const progress = duration > 0 ? position / duration : 0;
   const formatMs = (ms: number) => {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
@@ -80,26 +97,43 @@ function VoicePlayer({ url }: { url: string }) {
   return (
     <View style={voiceStyles.container}>
       <TouchableOpacity onPress={togglePlay} style={voiceStyles.playBtn}>
-        <MaterialCommunityIcons name={playing ? 'pause' : 'play'} size={20} color={Colors.accent.gold} />
+        <MaterialCommunityIcons name={playing ? 'pause' : 'play'} size={22} color={Colors.bg.main} />
       </TouchableOpacity>
-      <View style={voiceStyles.waveform}>
-        <View style={voiceStyles.bar}>
-          <View style={[voiceStyles.barFill, { width: `${progress}%` }]} />
+      <View style={voiceStyles.waveArea}>
+        <View style={voiceStyles.barsRow}>
+          {bars.map((h, i) => {
+            const barProgress = i / bars.length;
+            const isPlayed = barProgress < progress;
+            return (
+              <View
+                key={i}
+                style={[
+                  voiceStyles.waveBar,
+                  {
+                    height: Math.max(3, h * 24),
+                    backgroundColor: isPlayed ? Colors.accent.gold : 'rgba(201,169,110,0.3)',
+                  },
+                ]}
+              />
+            );
+          })}
         </View>
-        <Text style={voiceStyles.time}>
-          {playing ? formatMs(position) : formatMs(duration)}
-        </Text>
+        <View style={voiceStyles.timeRow}>
+          <Text style={voiceStyles.time}>{formatMs(position)}</Text>
+          <Text style={voiceStyles.time}>{formatMs(duration)}</Text>
+        </View>
       </View>
     </View>
   );
 }
 
 const voiceStyles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 180 },
-  playBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(201,169,110,0.15)', alignItems: 'center', justifyContent: 'center' },
-  waveform: { flex: 1, gap: 4 },
-  bar: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2 },
-  barFill: { height: 4, backgroundColor: Colors.accent.gold, borderRadius: 2 },
+  container: { flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 200, paddingVertical: 2 },
+  playBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.accent.gold, alignItems: 'center', justifyContent: 'center' },
+  waveArea: { flex: 1, gap: 4 },
+  barsRow: { flexDirection: 'row', alignItems: 'center', gap: 1.5, height: 28 },
+  waveBar: { flex: 1, borderRadius: 1.5, minWidth: 2 },
+  timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
   time: { fontFamily: Fonts.body, fontSize: 10, color: Colors.text.muted },
 });
 
@@ -135,7 +169,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     loadMessages().finally(() => setLoading(false));
-    pollRef.current = setInterval(loadMessages, 5000);
+    pollRef.current = setInterval(loadMessages, 3000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (recordTimer.current) clearInterval(recordTimer.current);

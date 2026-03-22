@@ -10,6 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
+import { getCached, setCache } from '../../src/utils/cache';
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -21,14 +22,15 @@ export default function BookingsScreen() {
   const router = useRouter();
   const { token } = useAuth();
   const api = useApi();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(getCached('bookings') || null);
+  const [loading, setLoading] = useState(!getCached('bookings'));
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const d = await api.get('/api/bookings', token);
       setData(d);
+      setCache('bookings', d);
     } catch (e) {}
   }, [token]);
 

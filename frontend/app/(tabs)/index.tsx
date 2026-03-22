@@ -9,6 +9,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
+import { getCached, setCache } from '../../src/utils/cache';
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -34,8 +35,8 @@ export default function GamesScreen() {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const api = useApi();
-  const [games, setGames] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [games, setGames] = useState<any[]>(getCached('games') || []);
+  const [loading, setLoading] = useState(!getCached('games'));
   const [refreshing, setRefreshing] = useState(false);
   const [selectedGame, setSelectedGame] = useState<any>(null);
   const [gameDetail, setGameDetail] = useState<any>(null);
@@ -46,6 +47,7 @@ export default function GamesScreen() {
     try {
       const data = await api.get('/api/games', token);
       setGames(data);
+      setCache('games', data);
     } catch (e) {}
   }, [token]);
 
