@@ -59,25 +59,26 @@ const pStyles = StyleSheet.create({
 });
 
 function AnimatedStatusChip({ emoji, name, rate }: { emoji: string; name: string; rate: number }) {
-  const glowOpacity = useSharedValue(0);
+  const shimmerX = useSharedValue(-1);
 
   useEffect(() => {
-    glowOpacity.value = withRepeat(
+    shimmerX.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
-      ), -1, true
+        withTiming(-1, { duration: 0 }),
+        withTiming(2.5, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(2.5, { duration: 1000 })
+      ), -1, false
     );
   }, []);
 
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value * 0.4,
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shimmerX.value * 200 }],
   }));
 
   return (
     <View style={chipStyles.wrapper}>
-      <Animated.View style={[chipStyles.glow, glowStyle]} />
       <View style={chipStyles.chip}>
+        <Animated.View style={[chipStyles.shimmer, shimmerStyle]} />
         <Text style={chipStyles.text}>{emoji} {name} · {rate}%</Text>
       </View>
     </View>
@@ -85,9 +86,9 @@ function AnimatedStatusChip({ emoji, name, rate }: { emoji: string; name: string
 }
 
 const chipStyles = StyleSheet.create({
-  wrapper: { marginTop: 10, alignItems: 'center', justifyContent: 'center' },
-  glow: { position: 'absolute', width: '120%', height: '180%', borderRadius: 20, backgroundColor: Colors.accent.gold },
-  chip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(201,169,110,0.15)', borderWidth: 1, borderColor: 'rgba(201,169,110,0.3)' },
+  wrapper: { marginTop: 10, alignItems: 'center' },
+  chip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(201,169,110,0.12)', borderWidth: 1, borderColor: 'rgba(201,169,110,0.25)', overflow: 'hidden', position: 'relative' },
+  shimmer: { position: 'absolute', top: 0, left: 0, width: 80, height: '100%', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 12 },
   text: { fontFamily: Fonts.bodySemiBold, fontSize: FontSizes.small, color: Colors.accent.goldLight },
 });
 
