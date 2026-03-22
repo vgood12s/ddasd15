@@ -12,7 +12,7 @@ import { Colors } from '../src/constants/theme';
 SplashScreen.preventAutoHideAsync();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, loading, loggingOut } = useAuth();
+  const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -24,14 +24,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inProtected = inTabs || inChat || inArticles;
 
     if (!user && inProtected) {
-      // Logged out → go to welcome screen
-      // Use dismissAll to clear navigation stack, then replace to root
-      try { router.dismissAll(); } catch (e) {}
-      setTimeout(() => {
-        router.replace('/');
-      }, 50);
+      router.replace('/');
     } else if (user && !inProtected) {
-      // Logged in but on auth/welcome screen → go to tabs
       const onAuth = segments[0] === 'login' || segments[0] === 'register' || segments.length === 0 || segments[0] === undefined;
       if (onAuth) {
         router.replace('/(tabs)');

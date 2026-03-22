@@ -196,9 +196,17 @@ export default function GamesScreen() {
 
             {gameDetail ? (
               <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.modalImagePlaceholder}>
-                  <MaterialCommunityIcons name="sword-cross" size={60} color={Colors.accent.gold} />
-                </View>
+                {gameDetail.image_url ? (
+                  <Image
+                    source={{ uri: gameDetail.image_url.startsWith('http') ? gameDetail.image_url : `${GUILD_BASE_URL}${gameDetail.image_url}` }}
+                    style={styles.modalImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.modalImagePlaceholder}>
+                    <MaterialCommunityIcons name="sword-cross" size={60} color={Colors.accent.gold} />
+                  </View>
+                )}
 
                 <Text style={styles.modalTitle}>{gameDetail.title}</Text>
 
@@ -335,7 +343,8 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.bg.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 16, maxHeight: '90%' },
   modalClose: { alignSelf: 'flex-end', width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.bg.main, alignItems: 'center', justifyContent: 'center' },
-  modalImagePlaceholder: { height: 140, backgroundColor: Colors.bg.main, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  modalImagePlaceholder: { height: 180, backgroundColor: Colors.bg.main, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  modalImage: { height: 200, width: '100%', borderRadius: 16, marginBottom: 16 },
   modalTitle: { fontFamily: Fonts.heading, fontSize: FontSizes.h2, color: Colors.accent.gold, marginBottom: 16 },
   modalDetails: { gap: 8, marginBottom: 16 },
   modalDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

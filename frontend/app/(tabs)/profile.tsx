@@ -88,6 +88,8 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout();
+    // Force navigation to welcome screen
+    router.replace('/');
   };
 
   const handleAvatarUpload = async () => {
