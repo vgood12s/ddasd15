@@ -6,13 +6,57 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
 
 const GUILD_BASE_URL = 'https://guildkhv.com';
+
+function PulsingStatus({ emoji }: { emoji: string }) {
+  const scale = useSharedValue(1);
+  const glow = useSharedValue(0.3);
+  
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.15, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+      ), -1, true
+    );
+    glow.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+      ), -1, true
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glow.value,
+  }));
+
+  return (
+    <View style={pStyles.container}>
+      <Animated.View style={[pStyles.glow, glowStyle]} />
+      <Animated.View style={[pStyles.badge, animStyle]}>
+        <Text style={pStyles.emoji}>{emoji}</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+const pStyles = StyleSheet.create({
+  container: { position: 'absolute', bottom: -4, right: -4, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  glow: { position: 'absolute', width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.accent.gold },
+  badge: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.bg.card, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.bg.main },
+  emoji: { fontSize: 14 },
+});
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -120,7 +164,7 @@ export default function ProfileScreen() {
               )}
             </View>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusEmoji}>{user?.status_emoji}</Text>
+              <PulsingStatus emoji={user?.status_emoji || '🌱'} />
             </View>
             <View style={styles.avatarEditBadge}>
               <MaterialCommunityIcons name="camera" size={12} color="#fff" />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  RefreshControl, ActivityIndicator, Modal,
+  RefreshControl, ActivityIndicator, Modal, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,6 +10,8 @@ import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
 import { getCached, setCache } from '../../src/utils/cache';
+
+const GUILD_BASE_URL = 'https://guildkhv.com';
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -130,11 +132,23 @@ export default function GamesScreen() {
               onPress={() => openGame(game)}
               activeOpacity={0.85}
             >
-              {/* Image placeholder */}
-              <View style={styles.gameImagePlaceholder}>
-                <MaterialCommunityIcons name="image-outline" size={40} color={Colors.text.muted} />
-                <SpotsBadge spots={game.spots_left} />
-              </View>
+              {/* Game Image */}
+              {game.image_url ? (
+                <View style={styles.gameImageContainer}>
+                  <Image 
+                    source={{ uri: game.image_url.startsWith('http') ? game.image_url : `${GUILD_BASE_URL}${game.image_url}` }} 
+                    style={styles.gameImage} 
+                    resizeMode="cover" 
+                  />
+                  <View style={styles.gameImageOverlay} />
+                  <SpotsBadge spots={game.spots_left} />
+                </View>
+              ) : (
+                <View style={styles.gameImagePlaceholder}>
+                  <MaterialCommunityIcons name="sword-cross" size={40} color={Colors.accent.gold} />
+                  <SpotsBadge spots={game.spots_left} />
+                </View>
+              )}
 
               <View style={styles.gameInfo}>
                 <Text style={styles.gameTitle} numberOfLines={1}>{game.title}</Text>
@@ -303,7 +317,10 @@ const styles = StyleSheet.create({
   headerTitle: { fontFamily: Fonts.heading, fontSize: FontSizes.h2, color: Colors.accent.gold, letterSpacing: 1 },
   headerSubtitle: { fontFamily: Fonts.body, fontSize: FontSizes.caption, color: Colors.text.muted, marginBottom: Spacing.m, marginTop: 4 },
   gameCard: { backgroundColor: Colors.bg.card, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(201,169,110,0.15)', marginBottom: Spacing.m, overflow: 'hidden' },
-  gameImagePlaceholder: { height: 120, backgroundColor: '#1a1828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  gameImageContainer: { height: 160, position: 'relative' },
+  gameImage: { width: '100%', height: 160 },
+  gameImageOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: 'transparent', backgroundImage: 'linear-gradient(transparent, rgba(14,12,21,0.8))' },
+  gameImagePlaceholder: { height: 160, backgroundColor: '#1a1828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
   gameInfo: { padding: Spacing.m },
   gameTitle: { fontFamily: Fonts.heading, fontSize: FontSizes.h3, color: Colors.text.highlight, marginBottom: 4 },
   gameDesc: { fontFamily: Fonts.body, fontSize: FontSizes.caption, color: Colors.text.muted, marginBottom: Spacing.s, lineHeight: 20 },
