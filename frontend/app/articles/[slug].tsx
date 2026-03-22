@@ -73,7 +73,7 @@ new MutationObserver(postH).observe(document.body,{childList:true,subtree:true})
         overflow: 'hidden',
       }}
       scrolling="no"
-      sandbox="allow-scripts"
+      sandbox="allow-scripts allow-same-origin allow-popups"
     />
   );
 }
