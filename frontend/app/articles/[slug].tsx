@@ -74,7 +74,7 @@ export default function ArticleDetailScreen() {
       padding: 12,
     },
     a: { color: Colors.accent.gold, textDecorationLine: 'underline' as const },
-    img: { borderRadius: 12, marginVertical: 8 },
+    img: { borderRadius: 12, marginVertical: 8, maxWidth: '100%' },
     ul: { marginVertical: 8 },
     ol: { marginVertical: 8 },
     li: { marginVertical: 3 },
@@ -147,6 +147,12 @@ export default function ArticleDetailScreen() {
             source={{ html: processHtml(article.content) }}
             tagsStyles={htmlStyles}
             defaultTextProps={{ selectable: true }}
+            enableExperimentalBRCollapsing={true}
+            renderersProps={{
+              img: {
+                enableExperimentalPercentWidth: true,
+              },
+            }}
           />
         ) : (
           <Text style={styles.noContent}>Содержимое статьи пусто</Text>
