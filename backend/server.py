@@ -13,6 +13,9 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import httpx
+import subprocess
+import tempfile
+import struct
 import json
 
 ROOT_DIR = Path(__file__).parent
@@ -596,6 +599,87 @@ async def root():
 @api_router.get("/health")
 async def health():
     return {"status": "ok"}
+
+# ===== Audio Waveform Analysis =====
+_waveform_cache: dict = {}  # url -> bars[]
+
+@app.get("/api/proxy/waveform")
+async def get_waveform(url: str):
+    """Download audio file, analyze amplitude, return waveform bars."""
+    if url in _waveform_cache:
+        return {"bars": _waveform_cache[url]}
+
+    full_url = url if url.startswith("http") else f"{GUILD_API_URL}{url}"
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            resp = await http.get(full_url)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=404, detail="Audio file not found")
+
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+            tmp.write(resp.content)
+            tmp_path = tmp.name
+
+        # Convert to raw PCM using ffmpeg
+        pcm_path = tmp_path + ".raw"
+        proc = subprocess.run(
+            ["ffmpeg", "-y", "-i", tmp_path, "-ac", "1", "-ar", "8000",
+             "-f", "s16le", "-acodec", "pcm_s16le", pcm_path],
+            capture_output=True, timeout=10
+        )
+
+        if proc.returncode != 0:
+            os.unlink(tmp_path)
+            # Return fallback bars
+            return {"bars": [0.3] * 40}
+
+        # Read PCM data
+        with open(pcm_path, "rb") as f:
+            pcm_data = f.read()
+
+        os.unlink(tmp_path)
+        os.unlink(pcm_path)
+
+        if len(pcm_data) < 4:
+            return {"bars": [0.1] * 40}
+
+        # Parse 16-bit signed samples
+        num_samples = len(pcm_data) // 2
+        samples = struct.unpack(f"<{num_samples}h", pcm_data[:num_samples * 2])
+
+        # Split into N chunks and get RMS amplitude for each
+        num_bars = 48
+        chunk_size = max(1, num_samples // num_bars)
+        bars = []
+        max_amp = 1.0
+
+        for i in range(num_bars):
+            start = i * chunk_size
+            end = min(start + chunk_size, num_samples)
+            if start >= num_samples:
+                bars.append(0.0)
+                continue
+            chunk = samples[start:end]
+            # RMS amplitude
+            rms = (sum(s * s for s in chunk) / len(chunk)) ** 0.5
+            bars.append(rms)
+
+        # Normalize to 0.0-1.0
+        max_amp = max(bars) if bars else 1.0
+        if max_amp > 0:
+            bars = [min(1.0, max(0.05, b / max_amp)) for b in bars]
+        else:
+            bars = [0.1] * num_bars
+
+        _waveform_cache[url] = bars
+        return {"bars": bars}
+
+    except Exception as e:
+        logger.error(f"Waveform error: {e}")
+        return {"bars": [0.3] * 40}
+
 
 # ===== Proxy to guildkhv.com =====
 GUILD_API_URL = "https://guildkhv.com"

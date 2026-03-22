@@ -38,22 +38,36 @@ function VoicePlayer({ url }: { url: string }) {
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
+  const [bars, setBars] = useState<number[]>([]);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const api = useApi();
 
-  // Generate consistent waveform bars from URL hash
-  const bars = React.useMemo(() => {
-    let hash = 0;
-    for (let i = 0; i < url.length; i++) {
-      hash = ((hash << 5) - hash) + url.charCodeAt(i);
-      hash |= 0;
-    }
-    const count = 32;
-    const result: number[] = [];
-    for (let i = 0; i < count; i++) {
-      const seed = Math.abs(hash * (i + 1) * 2654435761) % 1000;
-      result.push(0.15 + (seed / 1000) * 0.85);
-    }
-    return result;
+  // Load real waveform data from backend
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Extract the relative path from the full URL
+        const relPath = url.replace('https://guildkhv.com', '');
+        const data = await api.get(`/api/waveform?url=${encodeURIComponent(relPath)}`);
+        if (!cancelled && data.bars) {
+          setBars(data.bars);
+        }
+      } catch (e) {
+        // Fallback to pseudo bars
+        if (!cancelled) {
+          const fallback: number[] = [];
+          let hash = 0;
+          for (let i = 0; i < url.length; i++) hash = ((hash << 5) - hash) + url.charCodeAt(i);
+          for (let i = 0; i < 48; i++) {
+            const seed = Math.abs(hash * (i + 1) * 2654435761) % 1000;
+            fallback.push(0.15 + (seed / 1000) * 0.85);
+          }
+          setBars(fallback);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, [url]);
 
   const togglePlay = async () => {
@@ -94,6 +108,8 @@ function VoicePlayer({ url }: { url: string }) {
     return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   };
 
+  const displayBars = bars.length > 0 ? bars : Array(48).fill(0.15);
+
   return (
     <View style={voiceStyles.container}>
       <TouchableOpacity onPress={togglePlay} style={voiceStyles.playBtn}>
@@ -101,8 +117,8 @@ function VoicePlayer({ url }: { url: string }) {
       </TouchableOpacity>
       <View style={voiceStyles.waveArea}>
         <View style={voiceStyles.barsRow}>
-          {bars.map((h, i) => {
-            const barProgress = i / bars.length;
+          {displayBars.map((h, i) => {
+            const barProgress = i / displayBars.length;
             const isPlayed = barProgress < progress;
             return (
               <View
@@ -110,8 +126,8 @@ function VoicePlayer({ url }: { url: string }) {
                 style={[
                   voiceStyles.waveBar,
                   {
-                    height: Math.max(3, h * 24),
-                    backgroundColor: isPlayed ? Colors.accent.gold : 'rgba(201,169,110,0.3)',
+                    height: Math.max(3, h * 28),
+                    backgroundColor: isPlayed ? Colors.accent.gold : 'rgba(201,169,110,0.35)',
                   },
                 ]}
               />
