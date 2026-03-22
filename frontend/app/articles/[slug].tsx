@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Dimensions, useWindowDimensions,
+  ActivityIndicator, useWindowDimensions, Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +26,58 @@ function formatDate(iso: string) {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+// Web-only iframe renderer
+function WebHtmlContent({ html, width }: { html: string; width: number }) {
+  const [height, setHeight] = useState(500);
+  const fullHtml = `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;color:${Colors.text.primary};background:transparent;font-size:16px;line-height:1.7;overflow-x:hidden;word-wrap:break-word}
+h1,h2{color:${Colors.accent.gold};margin:16px 0 10px;font-size:20px}
+h3{color:#f0e6d2;margin:12px 0 8px;font-size:18px}
+p{margin:8px 0}
+strong{color:#f0e6d2}
+em{color:${Colors.accent.goldLight}}
+a{color:${Colors.accent.gold}}
+img{max-width:100%!important;height:auto!important;border-radius:12px;margin:10px 0;display:block}
+blockquote{border-left:3px solid ${Colors.accent.gold};padding:12px 14px;margin:14px 0;background:rgba(201,169,110,0.06);border-radius:8px;overflow:hidden}
+blockquote img{max-width:100%!important}
+ul,ol{margin:10px 0;padding-left:24px}
+li{margin:4px 0}
+</style></head><body>${html}</body>
+<script>
+function postH(){parent.postMessage({type:'articleHeight',h:document.body.scrollHeight},'*')}
+window.onload=function(){setTimeout(postH,300);setTimeout(postH,1000)};
+new MutationObserver(postH).observe(document.body,{childList:true,subtree:true});
+</script></html>`;
+
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === 'articleHeight' && e.data.h > 100) {
+        setHeight(e.data.h + 20);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  return (
+    <iframe
+      srcDoc={fullHtml}
+      style={{
+        width: width,
+        height: height,
+        border: 'none',
+        background: 'transparent',
+        overflow: 'hidden',
+      }}
+      scrolling="no"
+      sandbox="allow-scripts"
+    />
+  );
+}
+
 export default function ArticleDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
@@ -35,6 +87,8 @@ export default function ArticleDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const contentWidth = screenWidth - Spacing.m * 2;
 
   useEffect(() => {
     (async () => {
@@ -46,35 +100,21 @@ export default function ArticleDetailScreen() {
     })();
   }, [slug]);
 
-  // Process HTML: fix relative image URLs
   const processHtml = (html: string) => {
-    return html.replace(/src=\"\//g, `src="${GUILD_BASE_URL}/`);
+    return html.replace(/src="\/(?!\/)/g, `src="${GUILD_BASE_URL}/`);
   };
 
   const htmlStyles = {
-    body: {
-      color: Colors.text.primary,
-      fontFamily: Fonts.body,
-      fontSize: 16,
-      lineHeight: 26,
-    },
+    body: { color: Colors.text.primary, fontFamily: Fonts.body, fontSize: 16, lineHeight: 26 },
     h1: { fontFamily: Fonts.heading, color: Colors.accent.gold, fontSize: 24, marginVertical: 12 },
     h2: { fontFamily: Fonts.heading, color: Colors.accent.gold, fontSize: 20, marginVertical: 10 },
     h3: { fontFamily: Fonts.heading, color: Colors.text.highlight, fontSize: 18, marginVertical: 8 },
     p: { marginVertical: 6 },
     strong: { color: Colors.text.highlight },
     em: { color: Colors.accent.goldLight },
-    blockquote: {
-      borderLeftWidth: 3,
-      borderLeftColor: Colors.accent.gold,
-      paddingLeft: 14,
-      marginVertical: 12,
-      backgroundColor: 'rgba(201,169,110,0.06)',
-      borderRadius: 8,
-      padding: 12,
-    },
+    blockquote: { borderLeftWidth: 3, borderLeftColor: Colors.accent.gold, paddingLeft: 14, marginVertical: 12, backgroundColor: 'rgba(201,169,110,0.06)', borderRadius: 8, padding: 12 },
     a: { color: Colors.accent.gold, textDecorationLine: 'underline' as const },
-    img: { borderRadius: 12, marginVertical: 8, maxWidth: '100%' },
+    img: { borderRadius: 12, marginVertical: 8 },
     ul: { marginVertical: 8 },
     ol: { marginVertical: 8 },
     li: { marginVertical: 3 },
@@ -106,7 +146,6 @@ export default function ArticleDetailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.text.primary} />
@@ -120,10 +159,7 @@ export default function ArticleDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: Spacing.m, paddingBottom: insets.bottom + 40 }}
       >
-        {/* Title */}
         <Text style={styles.title}>{article.title}</Text>
-
-        {/* Meta */}
         <View style={styles.metaRow}>
           {article.author ? (
             <View style={styles.metaItem}>
@@ -136,24 +172,20 @@ export default function ArticleDetailScreen() {
             <Text style={styles.metaText}>{formatDate(article.published_at)}</Text>
           </View>
         </View>
-
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Content */}
         {article.content ? (
-          <RenderHtml
-            contentWidth={screenWidth - Spacing.m * 2}
-            source={{ html: processHtml(article.content) }}
-            tagsStyles={htmlStyles}
-            defaultTextProps={{ selectable: true }}
-            enableExperimentalBRCollapsing={true}
-            renderersProps={{
-              img: {
-                enableExperimentalPercentWidth: true,
-              },
-            }}
-          />
+          Platform.OS === 'web' ? (
+            <WebHtmlContent html={processHtml(article.content)} width={contentWidth} />
+          ) : (
+            <RenderHtml
+              contentWidth={contentWidth}
+              source={{ html: processHtml(article.content) }}
+              tagsStyles={htmlStyles}
+              defaultTextProps={{ selectable: true }}
+              computeEmbeddedMaxWidth={() => contentWidth - 20}
+            />
+          )
         ) : (
           <Text style={styles.noContent}>Содержимое статьи пусто</Text>
         )}
