@@ -20,7 +20,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (loading) return;
     const inTabs = segments[0] === '(tabs)';
     const inChat = segments[0] === 'chat';
-    const inProtected = inTabs || inChat;
+    const inArticles = segments[0] === 'articles';
+    const inProtected = inTabs || inChat || inArticles;
 
     if (!user && inProtected) {
       // Logged out → go to welcome screen

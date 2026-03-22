@@ -188,6 +188,11 @@ export default function ProfileScreen() {
 
         {/* Masters section */}
         <Animated.View entering={FadeInDown.delay(500).duration(500)}>
+          <TouchableOpacity testID="articles-btn" style={styles.menuItem} onPress={() => router.push('/articles')}>
+            <MaterialCommunityIcons name="book-open-variant" size={22} color={Colors.accent.gold} />
+            <Text style={styles.menuItemText}>Статьи и гайды</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.text.muted} />
+          </TouchableOpacity>
           <TouchableOpacity testID="masters-btn" style={styles.menuItem} onPress={() => setShowMasters(true)}>
             <MaterialCommunityIcons name="account-star" size={22} color={Colors.accent.gold} />
             <Text style={styles.menuItemText}>Мастера Гильдии</Text>
