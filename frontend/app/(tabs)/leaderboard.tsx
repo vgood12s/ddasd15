@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
@@ -48,10 +47,19 @@ export default function LeaderboardScreen() {
   const onRefresh = async () => { setRefreshing(true); await load(tab); setRefreshing(false); };
 
   const getValue = (item: any) => {
-    if (tab === 'sessions') return `${item.sessions_count} сессий`;
-    if (tab === 'gold') return `${item.balance} золота`;
-    return `${item.achievement_count} наград`;
+    if (tab === 'sessions') return `${Math.floor(item.sessions_count)} сессий`;
+    if (tab === 'gold') return `${Math.floor(item.balance)} золота`;
+    return `${Math.floor(item.achievement_count)} наград`;
   };
+
+  const getNumericValue = (item: any) => {
+    if (tab === 'sessions') return item.sessions_count || 0;
+    if (tab === 'gold') return item.balance || 0;
+    return item.achievement_count || 0;
+  };
+
+  // Filter out zero values
+  const filteredData = data.filter(item => getNumericValue(item) > 0);
 
   if (loading) return <View style={[styles.container, { paddingTop: insets.top }]}><ActivityIndicator size="large" color={Colors.accent.gold} style={{ marginTop: 100 }} /></View>;
 
@@ -82,18 +90,17 @@ export default function LeaderboardScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent.gold} />}
         contentContainerStyle={{ paddingBottom: 20 }}
       >
-        {data.map((item, i) => {
+        {filteredData.map((item, i) => {
           const isMe = item.id === user?.id;
-          const rank = RANK_ICONS[item.rank];
+          const rank = RANK_ICONS[i + 1];
           return (
-            <Animated.View key={item.id} entering={FadeInDown.delay(i * 60).duration(400)}>
-              <View style={[styles.leaderRow, isMe && styles.leaderRowMe]}>
+              <View key={`${tab}-${item.id}`} style={[styles.leaderRow, isMe && styles.leaderRowMe]}>
                 {/* Rank */}
                 <View style={styles.rankCol}>
                   {rank ? (
                     <MaterialCommunityIcons name={rank.icon as any} size={24} color={rank.color} />
                   ) : (
-                    <Text style={styles.rankText}>{item.rank}</Text>
+                    <Text style={styles.rankText}>{i + 1}</Text>
                   )}
                 </View>
 
@@ -116,7 +123,6 @@ export default function LeaderboardScreen() {
                 {/* Value */}
                 <Text style={styles.leaderValue}>{getValue(item)}</Text>
               </View>
-            </Animated.View>
           );
         })}
       </ScrollView>
