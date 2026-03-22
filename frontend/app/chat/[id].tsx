@@ -8,18 +8,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-av';
 import { Colors, Fonts, FontSizes, Spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useApi } from '../../src/utils/api';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-const USE_PROXY = process.env.EXPO_PUBLIC_USE_PROXY === 'true';
-
-function apiUrl(path: string) {
-  if (USE_PROXY) return `${BACKEND_URL}${path.replace('/api/', '/api/proxy/')}`;
-  return `${BACKEND_URL}${path}`;
-}
+const GUILD_BASE_URL = 'https://guildkhv.com';
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -173,11 +168,74 @@ export default function ChatScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.7,
-      allowsEditing: true,
+      allowsEditing: false,
     });
     if (!result.canceled && result.assets[0]) {
-      await sendMessage(`📷 [Фото отправлено]`);
+      const asset = result.assets[0];
+      setSending(true);
+      try {
+        const formData = new FormData();
+        const filename = asset.uri.split('/').pop() || 'photo.jpg';
+        const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+        const mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+        formData.append('file', {
+          uri: asset.uri,
+          name: filename,
+          type: mimeType,
+        } as any);
+        formData.append('text', '');
+        await api.upload(`/api/bookings/${bookingId}/upload`, formData, token);
+        await loadMessages();
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      } catch (e: any) {
+        Alert.alert('Ошибка', e.message || 'Не удалось отправить изображение');
+      } finally {
+        setSending(false);
+      }
     }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        setSending(true);
+        try {
+          const formData = new FormData();
+          formData.append('file', {
+            uri: asset.uri,
+            name: asset.name || 'file',
+            type: asset.mimeType || 'application/octet-stream',
+          } as any);
+          formData.append('text', '');
+          await api.upload(`/api/bookings/${bookingId}/upload`, formData, token);
+          await loadMessages();
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        } catch (e: any) {
+          Alert.alert('Ошибка', e.message || 'Не удалось отправить файл');
+        } finally {
+          setSending(false);
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Ошибка', 'Не удалось выбрать файл');
+    }
+  };
+
+  const showAttachMenu = () => {
+    Alert.alert(
+      'Прикрепить',
+      'Выберите тип вложения',
+      [
+        { text: 'Фото из галереи', onPress: pickImage },
+        { text: 'Документ', onPress: pickDocument },
+        { text: 'Отмена', style: 'cancel' },
+      ]
+    );
   };
 
   const startRecording = async () => {
@@ -187,7 +245,10 @@ export default function ChatScreen() {
         Alert.alert('Нет доступа', 'Разрешите доступ к микрофону');
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
       const { recording: rec } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
@@ -204,12 +265,29 @@ export default function ChatScreen() {
     if (!recording) return;
     if (recordTimer.current) clearInterval(recordTimer.current);
     setIsRecording(false);
+    setSending(true);
     try {
       await recording.stopAndUnloadAsync();
-      await sendMessage(`🎤 [Голосовое сообщение ${formatDuration(recordDuration)}]`);
-    } catch (e) {}
-    setRecording(null);
-    setRecordDuration(0);
+      const uri = recording.getURI();
+      if (uri) {
+        const formData = new FormData();
+        const filename = `voice_${Date.now()}.webm`;
+        formData.append('audio', {
+          uri: uri,
+          name: filename,
+          type: 'audio/webm',
+        } as any);
+        await api.upload(`/api/bookings/${bookingId}/voice`, formData, token);
+        await loadMessages();
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    } catch (e: any) {
+      Alert.alert('Ошибка', e.message || 'Не удалось отправить голосовое сообщение');
+    } finally {
+      setSending(false);
+      setRecording(null);
+      setRecordDuration(0);
+    }
   };
 
   const cancelRecording = async () => {
@@ -231,6 +309,14 @@ export default function ChatScreen() {
     const isImage = hasFile && (item.file_type === 'image' || item.file_type?.startsWith('image'));
     const isVoice = hasFile && (item.file_type === 'audio' || item.file_type === 'voice');
 
+    // Resolve relative file URLs to full URLs
+    const resolveUrl = (url: string | null) => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      return `${GUILD_BASE_URL}${url}`;
+    };
+    const fileUrl = resolveUrl(item.file_url);
+
     return (
       <View style={[styles.msgRow, isMe ? styles.msgRowRight : styles.msgRowLeft]}>
         {!isMe && (
@@ -242,28 +328,28 @@ export default function ChatScreen() {
           {!isMe && <Text style={styles.msgSenderName}>{item.sender_name}</Text>}
           <View style={[styles.msgBubble, isMe ? styles.msgBubbleMe : styles.msgBubbleThem]}>
             {/* Image */}
-            {isImage && item.file_url && (
-              <TouchableOpacity onPress={() => setPreviewImage(item.file_url)}>
+            {isImage && fileUrl ? (
+              <TouchableOpacity onPress={() => setPreviewImage(fileUrl)}>
                 <Image
-                  source={{ uri: item.file_url }}
+                  source={{ uri: fileUrl }}
                   style={styles.msgImage}
                   resizeMode="cover"
                 />
               </TouchableOpacity>
-            )}
+            ) : null}
             {/* Voice */}
-            {isVoice && item.file_url && (
-              <VoicePlayer url={item.file_url} />
-            )}
+            {isVoice && fileUrl ? (
+              <VoicePlayer url={fileUrl} />
+            ) : null}
             {/* File */}
-            {hasFile && !isImage && !isVoice && (
+            {hasFile && !isImage && !isVoice ? (
               <View style={styles.fileRow}>
                 <MaterialCommunityIcons name="file-document-outline" size={20} color={Colors.accent.gold} />
                 <Text style={[styles.msgText, isMe ? styles.msgTextMe : styles.msgTextThem]} numberOfLines={1}>
                   Файл
                 </Text>
               </View>
-            )}
+            ) : null}
             {/* Text */}
             {item.text ? (
               <Text style={[styles.msgText, isMe ? styles.msgTextMe : styles.msgTextThem]}>{item.text}</Text>
@@ -350,7 +436,7 @@ export default function ChatScreen() {
       {/* Input */}
       {!isRecording && (
         <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-          <TouchableOpacity testID="attach-btn" onPress={pickImage} style={styles.attachBtn}>
+          <TouchableOpacity testID="attach-btn" onPress={showAttachMenu} style={styles.attachBtn}>
             <MaterialCommunityIcons name="paperclip" size={22} color={Colors.text.muted} />
           </TouchableOpacity>
           <TouchableOpacity testID="mic-btn" onPress={startRecording} style={styles.micBtn}>

@@ -34,6 +34,16 @@ export function useApi() {
       if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
       return data;
     },
+    upload: async (path: string, formData: FormData, token?: string | null) => {
+      const headers: any = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(apiUrl(path), {
+        method: 'POST', headers, body: formData,
+      });
+      const data = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
+      if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
+      return data;
+    },
     del: async (path: string, token?: string | null) => {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;

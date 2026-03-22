@@ -59,6 +59,6 @@
   "seed_data_creation": "Seeded data already exists: 4 games, 3 masters, 4 sample users (dragon_slayer, shadow_mage, elf_ranger, dwarf_king). Test user test_hero from iteration 1 still functional. New test user test_ui_16007 created during UI testing.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "All features fully functional. Backend API endpoints tested with pytest (33 tests). Frontend UI tested with Playwright covering all tabs and flows. Seeded users available for testing: test_hero/quest123, dragon_slayer/test123, shadow_mage/test123, elf_ranger/test123, dwarf_king/test123. App accessible at https://app-preview-lab.preview.emergentagent.com. Only minor deprecation warnings present, no breaking issues.",
+  "context_for_next_testing_agent": "All features fully functional. Backend API endpoints tested with pytest (33 tests). Frontend UI tested with Playwright covering all tabs and flows. Seeded users available for testing: test_hero/quest123, dragon_slayer/test123, shadow_mage/test123, elf_ranger/test123, dwarf_king/test123. App accessible at https://guild-khv-mobile.preview.emergentagent.com. Only minor deprecation warnings present, no breaking issues.",
   "rca_of_issue": "N/A - No issues found. All features working as expected."
 }

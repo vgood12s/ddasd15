@@ -23,15 +23,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inProtected = inTabs || inChat;
 
     if (!user && inProtected) {
-      // Logged out → go to welcome
-      router.replace('/');
-    } else if (user && !inProtected && !loggingOut) {
+      // Logged out → go to welcome screen
+      // Use dismissAll to clear navigation stack, then replace to root
+      try { router.dismissAll(); } catch (e) {}
+      setTimeout(() => {
+        router.replace('/');
+      }, 50);
+    } else if (user && !inProtected) {
+      // Logged in but on auth/welcome screen → go to tabs
       const onAuth = segments[0] === 'login' || segments[0] === 'register' || segments.length === 0 || segments[0] === undefined;
       if (onAuth) {
         router.replace('/(tabs)');
       }
     }
-  }, [user, loading, loggingOut, segments]);
+  }, [user, loading, segments]);
 
   return <>{children}</>;
 }

@@ -82,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(loginStr: string, password: string) {
+    setLoggingOut(false);
     const res = await fetch(apiUrl('/api/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

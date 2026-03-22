@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, Response, UploadFile, File, Form
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import httpx
+import json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -599,6 +600,248 @@ async def health():
 # ===== Proxy to guildkhv.com =====
 GUILD_API_URL = "https://guildkhv.com"
 GUILD_API_KEY = os.environ.get("GUILD_API_KEY", "gld-k8v-2026-xQ9mP4rT7wLz")
+
+# ===== Web Session Manager (for file uploads) =====
+# The website's API only supports text messages.
+# File/voice uploads go through web routes with Flask session + CSRF.
+_web_sessions: dict = {}  # token_hash -> {"cookie": str, "csrf": str, "expires": datetime}
+
+async def _get_web_session(bearer_token: str) -> dict:
+    """Get or create a web session for file uploads."""
+    import hashlib
+    token_hash = hashlib.sha256(bearer_token.encode()).hexdigest()[:16]
+
+    cached = _web_sessions.get(token_hash)
+    if cached and cached.get("expires", datetime.min) > datetime.now():
+        return cached
+
+    # First, get the user info from the API to find their credentials
+    # We need to decode the JWT token to get user_id, then do web login
+    async with httpx.AsyncClient(timeout=15, follow_redirects=False) as http:
+        # Step 1: Get the login page to obtain CSRF token and initial cookie
+        login_page = await http.get(f"{GUILD_API_URL}/guild/login")
+        cookies = dict(login_page.cookies)
+
+        # Extract CSRF token
+        import re as _re
+        csrf_match = _re.search(r'name="csrf_token"\s+value="([^"]+)"', login_page.text)
+        if not csrf_match:
+            raise HTTPException(status_code=500, detail="Не удалось получить CSRF токен")
+        csrf_token = csrf_match.group(1)
+
+        # Step 2: Get user info via API to determine login credentials
+        me_resp = await http.get(
+            f"{GUILD_API_URL}/api/me",
+            headers={"Authorization": f"Bearer {bearer_token}", "X-API-Key": GUILD_API_KEY}
+        )
+        if me_resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Невалидный токен")
+        user_data = me_resp.json()
+        username = user_data.get("username", "")
+
+        # Step 3: We can't do web login without the password.
+        # But we can try a workaround: the API token shares the same JWT secret,
+        # so we'll try to use the API auth to create a message via an alternative method.
+        # Actually, we need to store the password during login.
+        # Check if we have cached credentials
+        cred = _web_sessions.get(f"cred_{token_hash}")
+        if not cred:
+            raise HTTPException(
+                status_code=400,
+                detail="Требуется повторный вход для отправки файлов"
+            )
+
+        # Step 4: Web login with the cached credentials
+        login_resp = await http.post(
+            f"{GUILD_API_URL}/guild/login",
+            data={
+                "login": cred["login"],
+                "password": cred["password"],
+                "csrf_token": csrf_token
+            },
+            cookies=cookies
+        )
+
+        if login_resp.status_code not in (200, 302):
+            raise HTTPException(status_code=401, detail="Не удалось создать веб-сессию")
+
+        # Get session cookie from response
+        session_cookie = None
+        for cookie_name, cookie_value in login_resp.cookies.items():
+            if cookie_name == "session":
+                session_cookie = cookie_value
+                break
+
+        if not session_cookie:
+            raise HTTPException(status_code=500, detail="Веб-сессия не создана")
+
+        # Step 5: Get a fresh CSRF token from the chat page
+        # We'll get it when needed per-request
+
+        session_data = {
+            "cookie": session_cookie,
+            "expires": datetime.now() + timedelta(hours=12),
+        }
+        _web_sessions[token_hash] = session_data
+        return session_data
+
+
+async def _get_csrf_for_chat(session_cookie: str, game_id: int) -> str:
+    """Get CSRF token from the chat page."""
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as http:
+        chat_page = await http.get(
+            f"{GUILD_API_URL}/guild/chat/{game_id}",
+            cookies={"session": session_cookie}
+        )
+        import re as _re
+        csrf_match = _re.search(r'csrf-token"\s+content="([^"]+)"', chat_page.text)
+        if not csrf_match:
+            # Try hidden field
+            csrf_match = _re.search(r'name="csrf_token"\s+value="([^"]+)"', chat_page.text)
+        if not csrf_match:
+            raise HTTPException(status_code=500, detail="Не удалось получить CSRF токен чата")
+        return csrf_match.group(1)
+
+
+async def _get_game_id_for_booking(booking_id: int, bearer_token: str) -> int:
+    """Get game_id from booking data via API."""
+    async with httpx.AsyncClient(timeout=15) as http:
+        resp = await http.get(
+            f"{GUILD_API_URL}/api/bookings",
+            headers={"Authorization": f"Bearer {bearer_token}", "X-API-Key": GUILD_API_KEY}
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail="Не удалось получить бронирования")
+        data = resp.json()
+        for group in ["active", "past"]:
+            for booking in data.get(group, []):
+                if booking.get("id") == booking_id:
+                    return booking.get("game_id")
+        raise HTTPException(status_code=404, detail="Бронирование не найдено")
+
+
+# ===== Login proxy that caches credentials for web session =====
+@app.post("/api/proxy/login")
+async def proxy_login(request: Request):
+    """Proxy login that also caches credentials for web session."""
+    body = await request.body()
+    data = json.loads(body) if body else {}
+
+    # Forward to API
+    async with httpx.AsyncClient(timeout=30) as http:
+        resp = await http.post(
+            f"{GUILD_API_URL}/api/login",
+            headers={
+                "X-API-Key": GUILD_API_KEY,
+                "Content-Type": "application/json"
+            },
+            content=body
+        )
+
+    if resp.status_code == 200:
+        # Cache credentials for web session
+        resp_data = resp.json()
+        token = resp_data.get("token", "")
+        import hashlib
+        token_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+        _web_sessions[f"cred_{token_hash}"] = {
+            "login": data.get("login", ""),
+            "password": data.get("password", ""),
+        }
+
+    return Response(
+        content=resp.content,
+        status_code=resp.status_code,
+        headers={"content-type": resp.headers.get("content-type", "application/json")},
+    )
+
+
+# ===== Voice Upload Proxy =====
+@app.post("/api/proxy/bookings/{booking_id}/voice")
+async def proxy_voice_upload(
+    booking_id: int,
+    request: Request,
+    audio: UploadFile = File(...),
+):
+    """Upload voice message to the website via web session."""
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    bearer_token = auth.split(" ")[1]
+
+    # Get web session
+    session_data = await _get_web_session(bearer_token)
+
+    # Get game_id for the booking
+    game_id = await _get_game_id_for_booking(booking_id, bearer_token)
+
+    # Get CSRF token
+    csrf = await _get_csrf_for_chat(session_data["cookie"], game_id)
+
+    # Upload the voice file
+    audio_bytes = await audio.read()
+
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as http:
+        resp = await http.post(
+            f"{GUILD_API_URL}/guild/chat/{game_id}/voice",
+            cookies={"session": session_data["cookie"]},
+            headers={"X-CSRFToken": csrf},
+            files={"audio": (audio.filename or "voice.webm", audio_bytes, audio.content_type or "audio/webm")},
+        )
+
+    if resp.status_code == 200:
+        return {"ok": True, "message": "Голосовое сообщение отправлено"}
+    else:
+        # Session might be expired, clear cache and retry
+        import hashlib
+        token_hash = hashlib.sha256(bearer_token.encode()).hexdigest()[:16]
+        _web_sessions.pop(token_hash, None)
+        raise HTTPException(status_code=resp.status_code, detail="Ошибка отправки голосового сообщения")
+
+
+# ===== File Upload Proxy =====
+@app.post("/api/proxy/bookings/{booking_id}/upload")
+async def proxy_file_upload(
+    booking_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    text: str = Form(default=""),
+):
+    """Upload file (image/doc) to chat via web session."""
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    bearer_token = auth.split(" ")[1]
+
+    # Get web session
+    session_data = await _get_web_session(bearer_token)
+
+    # Get game_id
+    game_id = await _get_game_id_for_booking(booking_id, bearer_token)
+
+    # Get CSRF token
+    csrf = await _get_csrf_for_chat(session_data["cookie"], game_id)
+
+    # Upload the file
+    file_bytes = await file.read()
+
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as http:
+        resp = await http.post(
+            f"{GUILD_API_URL}/guild/chat/{game_id}",
+            cookies={"session": session_data["cookie"]},
+            headers={"X-CSRFToken": csrf},
+            data={"text": text or ""},
+            files={"file": (file.filename or "file", file_bytes, file.content_type or "application/octet-stream")},
+        )
+
+    if resp.status_code in (200, 302):
+        return {"ok": True, "message": "Файл отправлен"}
+    else:
+        import hashlib
+        token_hash = hashlib.sha256(bearer_token.encode()).hexdigest()[:16]
+        _web_sessions.pop(token_hash, None)
+        raise HTTPException(status_code=resp.status_code, detail="Ошибка отправки файла")
+
 
 @app.api_route("/api/proxy/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 async def proxy_to_guild(path: str, request: Request):
