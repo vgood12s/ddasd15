@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
+import httpx
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -594,6 +595,40 @@ async def root():
 @api_router.get("/health")
 async def health():
     return {"status": "ok"}
+
+# ===== Proxy to guildkhv.com =====
+GUILD_API_URL = "https://guildkhv.com"
+GUILD_API_KEY = os.environ.get("GUILD_API_KEY", "gld-k8v-2026-xQ9mP4rT7wLz")
+
+@app.api_route("/api/proxy/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def proxy_to_guild(path: str, request: Request):
+    target_url = f"{GUILD_API_URL}/api/{path}"
+    query = str(request.url.query)
+    if query:
+        target_url += f"?{query}"
+
+    headers = {}
+    headers["X-API-Key"] = GUILD_API_KEY
+    if request.headers.get("authorization"):
+        headers["Authorization"] = request.headers["authorization"]
+    if request.headers.get("content-type"):
+        headers["Content-Type"] = request.headers["content-type"]
+
+    body = await request.body()
+
+    async with httpx.AsyncClient(timeout=30) as client_http:
+        resp = await client_http.request(
+            method=request.method,
+            url=target_url,
+            headers=headers,
+            content=body if body else None,
+        )
+
+    return Response(
+        content=resp.content,
+        status_code=resp.status_code,
+        headers={"content-type": resp.headers.get("content-type", "application/json")},
+    )
 
 app.include_router(api_router)
 

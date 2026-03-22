@@ -3,13 +3,21 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Fonts, FontSizes } from '../../src/constants/theme';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const USE_PROXY = process.env.EXPO_PUBLIC_USE_PROXY === 'true';
+
+function apiUrl(path: string) {
+  if (USE_PROXY) {
+    return `${BACKEND_URL}${path.replace('/api/', '/api/proxy/')}`;
+  }
+  return `${BACKEND_URL}${path}`;
+}
 
 export function useApi() {
   return {
     get: async (path: string, token?: string | null) => {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${BACKEND_URL}${path}`, { headers });
+      const res = await fetch(apiUrl(path), { headers });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
         throw new Error(err.detail || `Error ${res.status}`);
@@ -19,7 +27,7 @@ export function useApi() {
     post: async (path: string, body: any, token?: string | null) => {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${BACKEND_URL}${path}`, {
+      const res = await fetch(apiUrl(path), {
         method: 'POST', headers, body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
@@ -29,7 +37,7 @@ export function useApi() {
     del: async (path: string, token?: string | null) => {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${BACKEND_URL}${path}`, { method: 'DELETE', headers });
+      const res = await fetch(apiUrl(path), { method: 'DELETE', headers });
       const data = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
       if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
       return data;
