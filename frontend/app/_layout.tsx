@@ -19,8 +19,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     const inTabs = segments[0] === '(tabs)';
-    if (user && !inTabs) {
-      // Authenticated but on welcome/login/register
+    const inChat = segments[0] === 'chat';
+    const inProtected = inTabs || inChat;
+
+    if (!user && inProtected) {
+      // Logged out but still on protected screens → go to welcome
+      router.replace('/');
+    } else if (user && !inProtected) {
       const onAuth = segments[0] === 'login' || segments[0] === 'register' || segments.length === 0 || segments[0] === undefined;
       if (onAuth) {
         router.replace('/(tabs)');

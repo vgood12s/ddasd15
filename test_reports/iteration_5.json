@@ -1,0 +1,53 @@
+{
+  "summary": "Frontend testing completed. 5 out of 6 features PASS. Logout redirect bug remains unresolved due to React state/navigation timing issue. All other features working correctly: welcome counters show real API data, wallet/profile display integers only, enhanced chat UI fully functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Logout redirect",
+        "issue": "After clicking logout button, URL changes to '/' but screen shows tabs content instead of welcome screen. AuthGate redirects back to tabs before user state updates to null.",
+        "affected_testIDs": ["logout-btn"],
+        "priority": "HIGH"
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "Playwright browser automation testing",
+    "Manual code review of AuthGate and logout flow"
+  ],
+  "action_items": [
+    "CRITICAL: Fix logout redirect bug - requires React state/navigation timing solution",
+    "Suggested approaches: 1) Add 'loggingOut' state flag to AuthContext, 2) Use callback after logout completes, 3) Modify AuthGate to check previous route before redirecting"
+  ],
+  "critical_code_review_comments": [
+    "✅ Welcome screen (index.tsx lines 107-128): Fetches real API data from /api/leaderboard and /api/games, displays actual counts (4 users, 1 game) - NOT hardcoded 200+, 50+",
+    "✅ Wallet (wallet.tsx lines 57, 58, 62, 66, 70, 113, 115): All numbers use Math.round() - balance: 65, received: 165, spent: 100, hours: 0, transaction amounts all integers",
+    "✅ Profile (profile.tsx lines 85, 90, 100): All numbers are integers - gold: 65, sessions: 1, hours: 0",
+    "✅ Enhanced chat (chat/[id].tsx): All UI elements present - attach button (line 353), mic button (line 356), text input (line 359), send button (line 369)",
+    "✅ Chat displays existing messages from API correctly with voice recordings and text",
+    "❌ Logout bug (profile.tsx line 41-44, _layout.tsx lines 19-34): AuthGate redirects to tabs before user state updates to null after logout()",
+    "ISSUE: logout() in AuthContext.tsx (lines 112-116) sets user to null synchronously, but React state updates are batched. AuthGate's useEffect runs before state propagates.",
+    "ATTEMPTED FIXES: 1) Removed router.replace('/') from profile - failed, 2) Modified AuthGate redirect logic - failed, 3) Added 100ms delay - failed, 4) Relied only on AuthGate - failed",
+    "ROOT CAUSE: Race condition between logout() state update and AuthGate useEffect. AuthGate sees user still set and redirects to tabs."
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/profile.tsx - Attempted logout redirect fixes (reverted to rely on AuthGate)",
+    "/app/frontend/app/_layout.tsx - Attempted AuthGate redirect logic modifications (reverted to original)",
+    "/app/frontend/app/index.tsx - Removed auto-redirect to tabs (now relies on AuthGate)"
+  ],
+  "success_rate": {
+    "backend": "Not tested (backend 100% working per agent note)",
+    "frontend": "83% (5/6 features passing)"
+  },
+  "seed_data_creation": "Used existing admin1/Qwerty1@1 account with active booking ID=11",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "5 features fully working. Logout redirect bug is a React state/navigation timing issue requiring main agent investigation. The bug is reproducible: click logout → URL changes to '/' but tabs content remains visible. AuthGate redirects back to tabs before user state updates to null. Suggested fix: add 'loggingOut' state flag to AuthContext to prevent AuthGate from redirecting during logout.",
+  "rca_of_issue": "LOGOUT REDIRECT BUG - UNRESOLVED\n\nSYMPTOM:\nAfter clicking logout button in profile tab, URL changes to '/' but screen continues showing tabs content instead of welcome screen.\n\nROOT CAUSE:\nRace condition between logout() state update and AuthGate useEffect:\n1. User clicks logout button (profile.tsx line 41)\n2. handleLogout() calls logout() (AuthContext.tsx line 112)\n3. logout() calls setUser(null) - React batches this state update\n4. AuthGate useEffect (_layout.tsx line 19) runs with dependencies [user, loading, segments]\n5. AuthGate sees user is still set (state hasn't propagated yet) and segments is '/' (length 0)\n6. AuthGate condition 'user && !inProtected && segments.length === 0' is true\n7. AuthGate calls router.replace('/(tabs)') - redirects back to tabs\n8. By the time user state updates to null, we're already on tabs\n\nATTEMPTED FIXES (ALL FAILED):\n1. Removed router.replace('/') from profile.tsx - AuthGate still redirects\n2. Modified AuthGate to not redirect from '/' - broke login flow\n3. Added 100ms delay before navigation - state still not propagated\n4. Relied only on AuthGate for redirect - same race condition\n\nSUGGESTED SOLUTIONS FOR MAIN AGENT:\n1. Add 'loggingOut' boolean state to AuthContext, set true during logout, check in AuthGate before redirecting\n2. Modify logout() to accept callback, call router.replace('/') in callback after state update\n3. Use React.useTransition to ensure state updates before navigation\n4. Add 'previousRoute' tracking to AuthGate, don't redirect if coming from protected route\n5. Use router.replace('/') with {replace: true, shallow: false} to force full navigation\n\nRECOMMENDED APPROACH:\nAdd loggingOut state to AuthContext:\n- AuthContext: const [loggingOut, setLoggingOut] = useState(false)\n- logout(): setLoggingOut(true); await AsyncStorage.removeItem('auth_token'); setUser(null); setToken(null); setLoggingOut(false);\n- AuthGate: if (!user && inProtected && !loggingOut) { router.replace('/'); }\n- profile.tsx: await logout(); (no manual navigation needed)"
+}

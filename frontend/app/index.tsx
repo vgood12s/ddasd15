@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors, Fonts, FontSizes, Spacing } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
+import { useApi } from '../src/utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -102,12 +103,27 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, loading } = useAuth();
+  const api = useApi();
+  const [stats, setStats] = useState({ users: 0, games: 0 });
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace('/(tabs)');
-    }
+    // AuthGate handles navigation - no auto-redirect needed here
   }, [loading, user]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [leaderboard, games] = await Promise.all([
+          api.get('/api/leaderboard'),
+          api.get('/api/games'),
+        ]);
+        setStats({
+          users: Array.isArray(leaderboard) ? leaderboard.length : 0,
+          games: Array.isArray(games) ? games.length : 0,
+        });
+      } catch (e) {}
+    })();
+  }, []);
 
   const particles = Array.from({ length: 8 }, (_, i) => ({
     delay: i * 500,
@@ -150,13 +166,13 @@ export default function WelcomeScreen() {
         <Animated.View entering={FadeInDown.delay(600).duration(800)} style={styles.statsRow}>
           <View style={styles.statItem}>
             <MaterialCommunityIcons name="account-group" size={24} color={Colors.accent.gold} />
-            <Text style={styles.statValue}>200+</Text>
+            <Text style={styles.statValue}>{stats.users || '...'}</Text>
             <Text style={styles.statLabel}>Искателей</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <MaterialCommunityIcons name="sword-cross" size={24} color={Colors.accent.gold} />
-            <Text style={styles.statValue}>50+</Text>
+            <Text style={styles.statValue}>{stats.games || '...'}</Text>
             <Text style={styles.statLabel}>Приключений</Text>
           </View>
         </Animated.View>

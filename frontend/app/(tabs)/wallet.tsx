@@ -54,20 +54,20 @@ export default function WalletScreen() {
         {/* Balance Card */}
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>ВАШ БАЛАНС</Text>
-          <Text style={styles.balanceValue}>{data?.balance?.toFixed(0) || '0'}</Text>
-          <Text style={styles.statusText}>{data?.status_emoji} {data?.status_name} · кэшбэк {data?.cashback_rate}%</Text>
+          <Text style={styles.balanceValue}>{Math.round(data?.balance || 0)}</Text>
+          <Text style={styles.statusText}>{data?.status_emoji} {data?.status_name} · кэшбэк {Math.round(data?.cashback_rate || 0)}%</Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: Colors.status.success }]}>+{data?.total_received?.toFixed(0) || '0'}</Text>
+              <Text style={[styles.statValue, { color: Colors.status.success }]}>+{Math.round(data?.total_received || 0)}</Text>
               <Text style={styles.statLabel}>ВСЕГО ПОЛУЧЕНО</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: Colors.status.danger }]}>-{data?.total_spent?.toFixed(0) || '0'}</Text>
+              <Text style={[styles.statValue, { color: Colors.status.danger }]}>-{Math.round(data?.total_spent || 0)}</Text>
               <Text style={styles.statLabel}>ВСЕГО ПОТРАЧЕНО</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{data?.prepaid_hours?.toFixed(1) || '0'}</Text>
+              <Text style={styles.statValue}>{Math.round(data?.prepaid_hours || 0)}</Text>
               <Text style={styles.statLabel}>ЧАСОВ АБОНЕМЕНТА</Text>
             </View>
           </View>
@@ -110,9 +110,9 @@ export default function WalletScreen() {
               </View>
               <View style={styles.txAmountCol}>
                 <Text style={[styles.txAmount, tx.amount > 0 ? styles.txAmountPos : styles.txAmountNeg]}>
-                  {tx.amount > 0 ? '+' : ''}{tx.amount}
+                  {tx.amount > 0 ? '+' : ''}{Math.round(tx.amount)}
                 </Text>
-                <Text style={styles.txBalance}>{tx.balance_after}</Text>
+                <Text style={styles.txBalance}>{Math.round(tx.balance_after)}</Text>
               </View>
             </View>
           )) : (

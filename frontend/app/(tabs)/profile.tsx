@@ -40,7 +40,7 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/');
+    // AuthGate will detect user=null and redirect to welcome screen
   };
 
   return (
@@ -82,7 +82,7 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.statsGrid}>
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="gold" size={26} color={Colors.accent.gold} />
-            <Text style={styles.statValue}>{user?.balance?.toFixed(0) || '0'}</Text>
+            <Text style={styles.statValue}>{Math.round(user?.balance || 0)}</Text>
             <Text style={styles.statLabel}>ЗОЛОТО</Text>
           </View>
           <View style={styles.statCard}>
@@ -97,7 +97,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="clock-outline" size={26} color={Colors.accent.goldLight} />
-            <Text style={styles.statValue}>{user?.prepaid_hours?.toFixed(1) || '0'}</Text>
+            <Text style={styles.statValue}>{Math.round(user?.prepaid_hours || 0)}</Text>
             <Text style={styles.statLabel}>ЧАСОВ</Text>
           </View>
         </Animated.View>
@@ -106,7 +106,7 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.progressSection}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressLabel}>До {user?.next_status_emoji} {user?.next_status_name}</Text>
-            <Text style={styles.progressPercent}>{user?.progress_percent?.toFixed(0)}%</Text>
+            <Text style={styles.progressPercent}>{Math.round(user?.progress_percent || 0)}%</Text>
           </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${user?.progress_percent || 0}%` }]} />
