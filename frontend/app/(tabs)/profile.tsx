@@ -58,6 +58,39 @@ const pStyles = StyleSheet.create({
   emoji: { fontSize: 14 },
 });
 
+function AnimatedStatusChip({ emoji, name, rate }: { emoji: string; name: string; rate: number }) {
+  const glowOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ), -1, true
+    );
+  }, []);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value * 0.4,
+  }));
+
+  return (
+    <View style={chipStyles.wrapper}>
+      <Animated.View style={[chipStyles.glow, glowStyle]} />
+      <View style={chipStyles.chip}>
+        <Text style={chipStyles.text}>{emoji} {name} · {rate}%</Text>
+      </View>
+    </View>
+  );
+}
+
+const chipStyles = StyleSheet.create({
+  wrapper: { marginTop: 10, alignItems: 'center', justifyContent: 'center' },
+  glow: { position: 'absolute', width: '120%', height: '180%', borderRadius: 20, backgroundColor: Colors.accent.gold },
+  chip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(201,169,110,0.15)', borderWidth: 1, borderColor: 'rgba(201,169,110,0.3)' },
+  text: { fontFamily: Fonts.bodySemiBold, fontSize: FontSizes.small, color: Colors.accent.goldLight },
+});
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -174,9 +207,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <Text style={styles.profileName}>{user?.first_name || user?.username}</Text>
           <Text style={styles.profileEmail}>{user?.email}</Text>
-          <View style={styles.statusChip}>
-            <Text style={styles.statusChipText}>{user?.status_emoji} {user?.status_name} · {user?.cashback_rate}%</Text>
-          </View>
+          <AnimatedStatusChip emoji={user?.status_emoji || '🌱'} name={user?.status_name || 'Новичок'} rate={user?.cashback_rate || 5} />
         </Animated.View>
 
         {/* Stats */}
