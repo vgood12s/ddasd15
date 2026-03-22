@@ -12,7 +12,7 @@ import { Colors } from '../src/constants/theme';
 SplashScreen.preventAutoHideAsync();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, loggingOut } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -23,15 +23,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inProtected = inTabs || inChat;
 
     if (!user && inProtected) {
-      // Logged out but still on protected screens → go to welcome
+      // Logged out → go to welcome
       router.replace('/');
-    } else if (user && !inProtected) {
+    } else if (user && !inProtected && !loggingOut) {
       const onAuth = segments[0] === 'login' || segments[0] === 'register' || segments.length === 0 || segments[0] === undefined;
       if (onAuth) {
         router.replace('/(tabs)');
       }
     }
-  }, [user, loading, segments]);
+  }, [user, loading, loggingOut, segments]);
 
   return <>{children}</>;
 }

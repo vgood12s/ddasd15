@@ -40,6 +40,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
+  loggingOut: boolean;
   login: (loginStr: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     loadStoredAuth();
@@ -110,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
+    setLoggingOut(true);
     await AsyncStorage.removeItem('auth_token');
     setToken(null);
     setUser(null);
@@ -130,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, token, loading, loggingOut, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
