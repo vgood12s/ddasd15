@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   RefreshControl, ActivityIndicator,
@@ -30,21 +30,43 @@ export default function LeaderboardScreen() {
   const [loading, setLoading] = useState(!getCached('leaderboard_sessions'));
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('sessions');
-
-  const load = useCallback(async (sortBy: string) => {
-    try {
-      const d = await api.get(`/api/leaderboard?sort_by=${sortBy}`, token);
-      setData(d);
-      setCache(`leaderboard_${sortBy}`, d);
-    } catch (e) {}
-  }, [token]);
+  const currentTabRef = useRef('sessions');
 
   useEffect(() => {
+    currentTabRef.current = tab;
     const cached = getCached(`leaderboard_${tab}`);
-    if (cached) { setData(cached); setLoading(false); }
-    load(tab).finally(() => setLoading(false));
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+    } else {
+      setData([]);
+    }
+    const requestTab = tab;
+    (async () => {
+      try {
+        const d = await api.get(`/api/leaderboard?sort_by=${requestTab}`, token);
+        setCache(`leaderboard_${requestTab}`, d);
+        if (currentTabRef.current === requestTab) {
+          setData(d);
+          setLoading(false);
+        }
+      } catch (e) {
+        if (currentTabRef.current === requestTab) setLoading(false);
+      }
+    })();
   }, [tab]);
-  const onRefresh = async () => { setRefreshing(true); await load(tab); setRefreshing(false); };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const d = await api.get(`/api/leaderboard?sort_by=${tab}`, token);
+      if (currentTabRef.current === tab) {
+        setData(d);
+        setCache(`leaderboard_${tab}`, d);
+      }
+    } catch (e) {}
+    setRefreshing(false);
+  };
 
   const getValue = (item: any) => {
     if (tab === 'sessions') return `${Math.floor(item.sessions_count)} сессий`;
